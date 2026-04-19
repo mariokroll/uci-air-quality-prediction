@@ -40,9 +40,15 @@ Raw CSV ingestion with European locale parsing (`;` separator, `,` decimal). Mis
 ### Phase 2 — Probabilistic Imputation (Particle Filter)
 A Rao-Blackwellised **Particle Filter** with a **Bayesian Linear Regression** observation model imputes missing sensor readings. The filter treats CO(GT) as a hidden state and uses all other sensors as observations. The imputed dataset is saved to `data/processed/pf_imputed.csv`.
 
-> The imputation comparison plot below shows the particle filter mean ± 1σ (blue band) against observed values (black dots) for each feature:
+> Two separate plots are generated — one per method — so neither obscures the other.
 
-![Imputation comparison](data/processed/imputation_comparison.png)
+**Bayesian Linear Regression** (firebrick line vs observed scatter):
+
+![BLR imputation](data/processed/imputation_comparison_blr.png)
+
+**Particle Filter** (steelblue mean + ±1σ band vs observed scatter):
+
+![PF imputation](data/processed/imputation_comparison_pf.png)
 
 ### Phase 3 — Sparse Variational Gaussian Process (SVGP)
 Three kernel variants are trained via mini-batch ELBO optimisation (GPyTorch):
@@ -170,7 +176,7 @@ All scripts must be run from the **repository root** in order (each phase depend
 uv run python -m scripts.run_imputation
 ```
 
-Outputs `data/processed/pf_imputed.csv`.
+Outputs `data/processed/pf_imputed.csv`, `imputation_comparison_blr.png`, and `imputation_comparison_pf.png`.
 
 ---
 

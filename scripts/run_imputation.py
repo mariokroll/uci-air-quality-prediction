@@ -4,9 +4,10 @@ Usage:
     python -m scripts.run_imputation
 
 Outputs:
-    data/processed/imputation_comparison.png   — per-feature plot
-    data/processed/pf_imputed.csv              — PF mean imputation
-    stdout                                     — RMSE comparison table
+    data/processed/imputation_comparison_blr.png  — BLR per-feature plot
+    data/processed/imputation_comparison_pf.png   — PF per-feature plot
+    data/processed/pf_imputed.csv                 — PF mean imputation
+    stdout                                        — RMSE comparison table
 """
 
 import textwrap
@@ -101,7 +102,8 @@ def main() -> None:
     print()
 
     # ── 7. Visualisation ────────────────────────────────────────────────────
-    _plot_comparison(df, df_blr, df_pf_mean, df_pf_std)
+    _plot_blr(df, df_blr)
+    _plot_pf(df, df_pf_mean, df_pf_std)
 
     # ── 8. Save PF output ───────────────────────────────────────────────────
     out_path = PROCESSED_DATA_DIR / "pf_imputed.csv"
@@ -109,71 +111,93 @@ def main() -> None:
     print(f"PF imputed data saved -> {out_path}")
 
 
-def _plot_comparison(
-    df_raw: pd.DataFrame,
-    df_blr: pd.DataFrame,
-    df_pf_mean: pd.DataFrame,
-    df_pf_std: pd.DataFrame,
-) -> None:
-    cols = [c for c in df_raw.columns if c != NMHC_COL]
-    n = len(cols)
+def _make_grid(n_cols_data: int) -> tuple:
+    """Return (fig, axes_flat, x, idx_slice) for the standard 2-week grid."""
     ncols = 3
-    nrows = (n + ncols - 1) // ncols
-
+    nrows = (n_cols_data + ncols - 1) // ncols
     fig, axes = plt.subplots(nrows, ncols, figsize=(18, nrows * 3.2), sharex=False)
     axes_flat = axes.flatten()
+    t_end = 24 * 14
+    x = np.arange(t_end)
+    return fig, axes_flat, x, slice(0, t_end)
 
-    # Use a 2-week window for readability
-    t_start, t_end = 0, 24 * 14
-    idx_slice = slice(t_start, t_end)
-    x = np.arange(t_end - t_start)
+
+def _plot_blr(df_raw: pd.DataFrame, df_blr: pd.DataFrame) -> None:
+    """One figure showing the BLR imputation for every feature."""
+    cols = [c for c in df_raw.columns if c != NMHC_COL]
+    fig, axes_flat, x, idx_slice = _make_grid(len(cols))
 
     for i, col in enumerate(cols):
         ax = axes_flat[i]
-
         raw_vals = df_raw[col].iloc[idx_slice].values
         blr_vals = df_blr[col].iloc[idx_slice].values
-        pf_mean = df_pf_mean[col].iloc[idx_slice].values
-        pf_std = df_pf_std[col].iloc[idx_slice].values
 
-        # PF uncertainty band
-        ax.fill_between(
-            x, pf_mean - pf_std, pf_mean + pf_std,
-            alpha=0.25, color="steelblue", label="PF ±1σ"
-        )
-        # BLR line
-        ax.plot(x, blr_vals, color="firebrick", lw=1.0, alpha=0.8, label="BLR")
-        # PF mean line
-        ax.plot(x, pf_mean, color="steelblue", lw=1.2, label="PF mean")
-        # Raw observed scatter
+        ax.plot(x, blr_vals, color="firebrick", lw=1.2, label="BLR")
         obs_mask = ~np.isnan(raw_vals)
         ax.scatter(
             x[obs_mask], raw_vals[obs_mask],
             s=4, color="black", alpha=0.5, label="Observed", zorder=5
         )
-        title = col if col != TARGET_COL else f"{col}  ★ target (PF hidden)"
+        ax.set_title(col, fontsize=9)
+        ax.set_xlabel("Hour offset", fontsize=7)
+        ax.tick_params(labelsize=7)
+
+    for j in range(len(cols), len(axes_flat)):
+        axes_flat[j].set_visible(False)
+
+    handles, labels = axes_flat[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower right", fontsize=9, ncol=2)
+    fig.suptitle("Bayesian Linear Regression Imputation — first 2 weeks", fontsize=13, y=1.01)
+    plt.tight_layout()
+
+    out_path = PROCESSED_DATA_DIR / "imputation_comparison_blr.png"
+    fig.savefig(out_path, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"BLR plot saved -> {out_path}")
+
+
+def _plot_pf(
+    df_raw: pd.DataFrame,
+    df_pf_mean: pd.DataFrame,
+    df_pf_std: pd.DataFrame,
+) -> None:
+    """One figure showing the Particle Filter imputation for every feature."""
+    cols = [c for c in df_raw.columns if c != NMHC_COL]
+    fig, axes_flat, x, idx_slice = _make_grid(len(cols))
+
+    for i, col in enumerate(cols):
+        ax = axes_flat[i]
+        raw_vals = df_raw[col].iloc[idx_slice].values
+        pf_mean  = df_pf_mean[col].iloc[idx_slice].values
+        pf_std   = df_pf_std[col].iloc[idx_slice].values
+
+        ax.fill_between(
+            x, pf_mean - pf_std, pf_mean + pf_std,
+            alpha=0.25, color="steelblue", label="PF ±1σ"
+        )
+        ax.plot(x, pf_mean, color="steelblue", lw=1.2, label="PF mean")
+        obs_mask = ~np.isnan(raw_vals)
+        ax.scatter(
+            x[obs_mask], raw_vals[obs_mask],
+            s=4, color="black", alpha=0.5, label="Observed", zorder=5
+        )
+        title = col if col != TARGET_COL else f"{col}  ★ target (hidden during PF)"
         ax.set_title(title, fontsize=9)
         ax.set_xlabel("Hour offset", fontsize=7)
         ax.tick_params(labelsize=7)
 
-    # Hide unused subplots
     for j in range(len(cols), len(axes_flat)):
         axes_flat[j].set_visible(False)
 
-    # Single shared legend
     handles, labels = axes_flat[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower right", fontsize=9, ncol=4)
-
-    fig.suptitle(
-        "BLR vs Particle Filter Imputation — first 2 weeks",
-        fontsize=13, y=1.01
-    )
+    fig.legend(handles, labels, loc="lower right", fontsize=9, ncol=3)
+    fig.suptitle("Particle Filter Imputation — first 2 weeks", fontsize=13, y=1.01)
     plt.tight_layout()
 
-    out_path = PROCESSED_DATA_DIR / "imputation_comparison.png"
+    out_path = PROCESSED_DATA_DIR / "imputation_comparison_pf.png"
     fig.savefig(out_path, dpi=120, bbox_inches="tight")
     plt.close(fig)
-    print(f"Comparison plot saved -> {out_path}")
+    print(f"PF plot saved -> {out_path}")
 
 
 if __name__ == "__main__":
