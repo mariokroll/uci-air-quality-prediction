@@ -125,6 +125,8 @@ def prepare_data(train_frac: float = TRAIN_FRAC):
         period_scaled,
         n_sensor_feats,
         split,
+        X_scaler,
+        feat_cols,
     )
 
 
@@ -146,6 +148,8 @@ def main() -> None:
         period_scaled,
         n_sensor_feats,
         split,
+        X_scaler,
+        feat_cols,
     ) = prepare_data()
 
     # Observed CO in test window (for ground-truth RMSE / NLL)
@@ -195,6 +199,14 @@ def main() -> None:
         )
         print(f"  Saved model -> {ckpt_path}")
 
+        # Calibration threshold for the frontend (locally_periodic only)
+        if k_type == "locally_periodic":
+            print("  Computing calibration threshold on training set ...")
+            _, std_tr_n = predict_svgp(model, likelihood, X_train)
+            std_tr_orig = std_tr_n.numpy() * y_std
+            lp_calib_threshold = float(np.percentile(std_tr_orig, 90.0))
+            print(f"  Calibration threshold (90th pct): {lp_calib_threshold:.4f} mg/m3")
+
         # Evaluate on originally-observed CO values only
         mean_eval = mean_orig[eval_mask]
         std_eval = std_orig[eval_mask]
@@ -219,6 +231,10 @@ def main() -> None:
             "y_std": y_std,
             "n_sensor_feats": n_sensor_feats,
             "period_scaled": period_scaled,
+            "feat_cols": feat_cols,
+            "x_scaler_mean": X_scaler.mean_,    # shape (F,) — features only
+            "x_scaler_scale": X_scaler.scale_,  # shape (F,)
+            "calib_threshold": lp_calib_threshold,
         },
         meta_path,
     )

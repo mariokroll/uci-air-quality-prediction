@@ -1,0 +1,35 @@
+# Version control
+.git/
+.gitignore
+
+# Virtual environment — uv creates a fresh one inside the image during build
+.venv/
+
+# Raw data — large CSVs not needed for inference
+data/raw/
+
+# Processed artefacts that are NOT the model checkpoint
+data/processed/*.csv
+data/processed/*.png
+
+# Python bytecode and tool caches
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build / packaging artefacts
+*.egg-info/
+dist/
+build/
+
+# Development tools and notebooks
+notebooks/
+.vscode/
+.idea/
+
+# Local environment secrets
+.env
+.env.*

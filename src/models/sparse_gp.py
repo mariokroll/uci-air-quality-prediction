@@ -292,3 +292,44 @@ def predict_svgp(
     ):
         pred = likelihood(model(X_test))
     return pred.mean, pred.variance.sqrt()
+
+
+@torch.no_grad()
+def predict_svgp_decomposed(
+    model: SVGPModel,
+    likelihood: gpytorch.likelihoods.GaussianLikelihood,
+    X_test: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Decompose predictive uncertainty into epistemic and aleatoric parts.
+
+    Epistemic = GP posterior variance  (reduces with more data)
+    Aleatoric = learned observation noise  (irreducible)
+    Total     = Epistemic + Aleatoric
+
+    Returns
+    -------
+    mean          : (N,) predictive mean
+    total_std     : (N,) sqrt(epistemic_var + aleatoric_var)
+    epistemic_std : (N,) sqrt of GP posterior variance
+    aleatoric_std : (N,) sqrt of observation noise variance
+    """
+    model.eval()
+    likelihood.eval()
+    with (
+        gpytorch.settings.fast_pred_var(),
+        gpytorch.settings.cholesky_jitter(1e-2),
+        li_settings.cholesky_jitter(float_value=1e-2, double_value=1e-2),
+    ):
+        f_pred = model(X_test)           # function posterior (no noise)
+        y_pred = likelihood(f_pred)      # observation posterior (with noise)
+
+    epistemic_var = f_pred.variance.clamp(min=0)
+    total_var = y_pred.variance.clamp(min=0)
+    aleatoric_var = (total_var - epistemic_var).clamp(min=0)
+
+    return (
+        y_pred.mean,
+        total_var.sqrt(),
+        epistemic_var.sqrt(),
+        aleatoric_var.sqrt(),
+    )
