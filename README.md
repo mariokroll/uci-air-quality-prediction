@@ -157,7 +157,7 @@ The frontend is packaged into a single Docker image using `uv` for reproducible 
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/mariokroll/uci-air-quality-prediction
 cd uci-air-quality-prediction
 
 # Install all dependencies (creates .venv automatically)
