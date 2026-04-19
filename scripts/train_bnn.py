@@ -21,6 +21,7 @@ import sys
 import warnings
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -47,12 +48,14 @@ PLOT_HOURS = 336  # first 2 weeks of the test window
 
 # ── Metrics ─────────────────────────────────────────────────────────────────
 
+
 def gaussian_nll(y_true: np.ndarray, mean: np.ndarray, std: np.ndarray) -> float:
-    var = std ** 2 + 1e-9
+    var = std**2 + 1e-9
     return float(np.mean(0.5 * (np.log(2 * np.pi * var) + (y_true - mean) ** 2 / var)))
 
 
 # ── Data preparation (mirrors train_gp.py) ──────────────────────────────────
+
 
 def prepare_data(train_frac: float = TRAIN_FRAC):
     pf_path = PROCESSED_DATA_DIR / "pf_imputed.csv"
@@ -88,9 +91,12 @@ def prepare_data(train_frac: float = TRAIN_FRAC):
     y = torch.tensor(y_norm)
 
     return (
-        X[:split], X[split:],
-        y[:split], y[split:],
-        y_mean, y_std,
+        X[:split],
+        X[split:],
+        y[:split],
+        y[split:],
+        y_mean,
+        y_std,
         df_raw[TARGET_COL],
         n_sensor_feats,
         split,
@@ -99,14 +105,18 @@ def prepare_data(train_frac: float = TRAIN_FRAC):
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     print("Preparing data ...")
     (
-        X_train, X_test,
-        y_train, y_test,
-        y_mean, y_std,
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        y_mean,
+        y_std,
         raw_co,
         n_sensor_feats,
         split,
@@ -124,7 +134,8 @@ def main() -> None:
 
     print("Training BNN ...")
     model = train_bnn(
-        X_train, y_train,
+        X_train,
+        y_train,
         hidden_sizes=HIDDEN_SIZES,
         prior_std=PRIOR_STD,
         n_epochs=N_EPOCHS,
@@ -144,7 +155,9 @@ def main() -> None:
     rmse = float(np.sqrt(np.mean((y_true_eval - mean_eval) ** 2)))
     nll = gaussian_nll(y_true_eval, mean_eval, std_eval)
 
-    df_metrics = pd.DataFrame([{"model": "BNN", "RMSE": rmse, "NLL": nll}]).set_index("model")
+    df_metrics = pd.DataFrame([{"model": "BNN", "RMSE": rmse, "NLL": nll}]).set_index(
+        "model"
+    )
     print("=" * 40)
     print(df_metrics.to_string(float_format="%.4f"))
     print("=" * 40)
@@ -165,16 +178,22 @@ def _plot_predictions(
 
     fig, ax = plt.subplots(figsize=(14, 4))
 
-    ax.fill_between(t_plot, mean[:plot_n] - std[:plot_n],
-                    mean[:plot_n] + std[:plot_n],
-                    alpha=0.25, color="darkorange", label="$\\pm 1\\sigma$")
+    ax.fill_between(
+        t_plot,
+        mean[:plot_n] - std[:plot_n],
+        mean[:plot_n] + std[:plot_n],
+        alpha=0.25,
+        color="darkorange",
+        label="$\\pm 1\\sigma$",
+    )
     ax.plot(t_plot, mean[:plot_n], color="darkorange", lw=1.2, label="BNN mean")
 
-    obs_mask = raw_co.iloc[split: split + plot_n].notna()
+    obs_mask = raw_co.iloc[split : split + plot_n].notna()
     t_obs = t_plot[obs_mask.values]
-    y_obs = raw_co.iloc[split: split + plot_n][obs_mask].values
-    ax.scatter(t_obs, y_obs, s=4, color="black", alpha=0.6,
-               label="Observed CO(GT)", zorder=5)
+    y_obs = raw_co.iloc[split : split + plot_n][obs_mask].values
+    ax.scatter(
+        t_obs, y_obs, s=4, color="black", alpha=0.6, label="Observed CO(GT)", zorder=5
+    )
 
     ax.set_xlabel("Hour index", fontsize=9)
     ax.set_ylabel("CO(GT) [mg/m3]", fontsize=9)
