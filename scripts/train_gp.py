@@ -13,8 +13,10 @@ Prerequisites
 
 Outputs
 -------
-    data/processed/gp_predictions.png   — per-kernel prediction plot
-    data/processed/gp_metrics.csv       — RMSE / NLL comparison table
+    data/processed/gp_predictions.png        — per-kernel prediction plot
+    data/processed/gp_metrics.csv            — RMSE / NLL comparison table
+    data/processed/svgp_<kernel>.pt          — saved model + likelihood state dicts
+    data/processed/svgp_meta.pt              — y_mean, y_std, n_sensor_feats, period_scaled
 """
 
 import sys
@@ -185,6 +187,14 @@ def main() -> None:
 
         all_predictions[k_type] = (mean_orig, std_orig)
 
+        # Save model checkpoint
+        ckpt_path = PROCESSED_DATA_DIR / f"svgp_{k_type}.pt"
+        torch.save(
+            {"model": model.state_dict(), "likelihood": likelihood.state_dict()},
+            ckpt_path,
+        )
+        print(f"  Saved model -> {ckpt_path}")
+
         # Evaluate on originally-observed CO values only
         mean_eval = mean_orig[eval_mask]
         std_eval = std_orig[eval_mask]
@@ -200,6 +210,19 @@ def main() -> None:
     print(df_metrics.to_string(float_format="%.4f"))
     print("=" * 50)
     df_metrics.to_csv(PROCESSED_DATA_DIR / "gp_metrics.csv")
+
+    # Save preprocessing metadata for inference-time denormalisation
+    meta_path = PROCESSED_DATA_DIR / "svgp_meta.pt"
+    torch.save(
+        {
+            "y_mean": y_mean,
+            "y_std": y_std,
+            "n_sensor_feats": n_sensor_feats,
+            "period_scaled": period_scaled,
+        },
+        meta_path,
+    )
+    print(f"Saved preprocessing meta -> {meta_path}")
 
     _plot_predictions(X_test, all_predictions, raw_co, split)
 

@@ -15,6 +15,7 @@ Outputs
 -------
     data/processed/bnn_predictions.png  — prediction plot (first 2 weeks)
     data/processed/bnn_metrics.csv      — RMSE / NLL
+    data/processed/bnn_model.pt         — model state dict + preprocessing meta
 """
 
 import sys
@@ -100,6 +101,8 @@ def prepare_data(train_frac: float = TRAIN_FRAC):
         df_raw[TARGET_COL],
         n_sensor_feats,
         split,
+        X_scaler,
+        feat_cols,
     )
 
 
@@ -120,6 +123,8 @@ def main() -> None:
         raw_co,
         n_sensor_feats,
         split,
+        X_scaler,
+        feat_cols,
     ) = prepare_data()
 
     raw_co_test = raw_co.iloc[split:]
@@ -162,6 +167,32 @@ def main() -> None:
     print(df_metrics.to_string(float_format="%.4f"))
     print("=" * 40)
     df_metrics.to_csv(PROCESSED_DATA_DIR / "bnn_metrics.csv")
+
+    # Calibration threshold: 90th percentile of training-set predictive std
+    print("Computing calibration threshold on training set ...")
+    mean_tr_n, std_tr_n = predict_bnn(model, X_train, n_samples=100)
+    std_tr_orig = std_tr_n.numpy() * y_std
+    calib_threshold = float(np.percentile(std_tr_orig, 90.0))
+    print(f"  Calibration threshold (90th pct of train std): {calib_threshold:.4f} mg/m3")
+
+    # Save model checkpoint with preprocessing metadata and scaler
+    ckpt_path = PROCESSED_DATA_DIR / "bnn_model.pt"
+    torch.save(
+        {
+            "model_state": model.state_dict(),
+            "hidden_sizes": HIDDEN_SIZES,
+            "in_features": X_train.shape[1],
+            "y_mean": y_mean,
+            "y_std": y_std,
+            "n_sensor_feats": n_sensor_feats,
+            "feat_cols": feat_cols,
+            "x_scaler_mean": X_scaler.mean_,
+            "x_scaler_scale": X_scaler.scale_,
+            "calib_threshold": calib_threshold,
+        },
+        ckpt_path,
+    )
+    print(f"Model saved -> {ckpt_path}")
 
     _plot_predictions(mean_orig, std_orig, raw_co, split)
 

@@ -13,7 +13,8 @@ dependencies = [
     "matplotlib>=3.7",
     "torch",
     "gpytorch",
-    "pyro-ppl"
+    "pyro-ppl",
+    "streamlit>=1.35",
 ]
 
 [project.optional-dependencies]

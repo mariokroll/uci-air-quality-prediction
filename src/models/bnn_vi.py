@@ -286,3 +286,53 @@ def predict_bnn(
     pred_std = pred_var.sqrt()
 
     return pred_mean, pred_std
+
+
+@torch.no_grad()
+def predict_bnn_decomposed(
+    model: BNNRegressor,
+    X_test: torch.Tensor,
+    n_samples: int = 100,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Decompose predictive uncertainty into epistemic and aleatoric components.
+
+    Uses the law of total variance:
+        Var[Y] = E[Var[Y|w]]  +  Var[E[Y|w]]
+                  aleatoric        epistemic
+
+    Parameters
+    ----------
+    model     : trained BNNRegressor
+    X_test    : (N, 1+F) scaled input
+    n_samples : MC forward passes
+
+    Returns
+    -------
+    mean          : (N,) predictive mean
+    total_std     : (N,) sqrt(epistemic_var + aleatoric_var)
+    epistemic_std : (N,) sqrt(Var[E[Y|w]])  — model / parameter uncertainty
+    aleatoric_std : (N,) sqrt(E[Var[Y|w]])  — irreducible / data noise
+    """
+    model.train()
+    means = []
+    vars_ = []
+    for _ in range(n_samples):
+        m, lv = model(X_test)
+        means.append(m)
+        vars_.append(lv.exp())
+    model.eval()
+
+    means_stack = torch.stack(means, dim=0)   # (S, N)
+    vars_stack = torch.stack(vars_, dim=0)    # (S, N)
+
+    pred_mean = means_stack.mean(dim=0)
+    aleatoric_var = vars_stack.mean(dim=0)                      # E[σ²_aleatoric]
+    epistemic_var = means_stack.var(dim=0, correction=0)        # Var[μ]
+    total_var = aleatoric_var + epistemic_var
+
+    return (
+        pred_mean,
+        total_var.sqrt(),
+        epistemic_var.sqrt(),
+        aleatoric_var.sqrt(),
+    )

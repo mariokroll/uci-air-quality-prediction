@@ -1,0 +1,5 @@
+model,train_time_s,inference_ms_total,inference_us_per_sample,peak_ram_mb
+bnn,56.04,105.568,56.3929,0.047
+svgp_rbf,76.25,7.539,4.0275,0.017
+svgp_periodic,30.91,4.466,2.3855,0.016
+svgp_locally_periodic,58.99,10.314,5.5095,0.018
