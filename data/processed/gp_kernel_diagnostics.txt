@@ -1,0 +1,15 @@
+Learned GP hyperparameters
+================================================================================
+                  outputscale    noise  mean_constant  rbf_lengthscale_mean  rbf_lengthscale_min  rbf_lengthscale_max  period_length  periodic_lengthscale
+kernel                                                                                                                                                    
+rbf                  0.393566 0.091958       1.134847              4.896685             3.515661             6.086863            NaN                   NaN
+periodic             0.460550 0.729014       0.196285                   NaN                  NaN                  NaN      23.998823              0.475878
+locally_periodic     0.277649 0.080514       1.058411              5.749184             4.130530             6.698837      24.005190              5.247515
+
+Counterfactual sensitivity summary
+================================================================================
+                  time_cf_std  time_cf_range  feature_cf_std  feature_cf_range  time_to_feature_std_ratio  time_to_feature_range_ratio
+kernel                                                                                                                                
+rbf                  0.000000       0.000000        1.352347          9.308143                   0.000000                     0.000000
+periodic             0.752154       2.677306        0.000000          0.000000        752154052257.537842         2677306175231.933594
+locally_periodic     0.134482       0.422656        1.336057          8.584050                   0.100656                     0.049237
