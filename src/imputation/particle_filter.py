@@ -79,17 +79,17 @@ class MultivariateParticleFilter:
     # Fitting
     # ------------------------------------------------------------------
 
-    def fit(self, df_blr: pd.DataFrame) -> "MultivariateParticleFilter":
-        """Estimate A, B, C, Q, α, β, R from BLR-imputed data.
+    def fit(self, df: pd.DataFrame) -> "MultivariateParticleFilter":
+        """Estimate A, B, C, Q, α, β, R from the provided data.
 
-        Any remaining NaN (e.g. NMHC) is filled with the column median
-        before fitting so that the transition model is defined everywhere.
+        Any NaN values are filled with the column median before fitting
+        so that the transition model is defined everywhere.
         """
-        self._cols = list(df_blr.columns)
+        self._cols = list(df.columns)
         D = len(self._cols)
 
-        # Fill residual NaN (NMHC) with column median
-        df_filled = df_blr.copy()
+        # Fill NaN with column median before fitting
+        df_filled = df.copy()
         for col in df_filled.columns:
             df_filled[col] = df_filled[col].fillna(df_filled[col].median())
 

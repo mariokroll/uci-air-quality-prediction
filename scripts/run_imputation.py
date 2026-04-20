@@ -13,6 +13,7 @@ Outputs:
 import textwrap
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,12 +27,18 @@ from src.imputation.particle_filter import MultivariateParticleFilter
 
 # ── Holdout seed for reproducible RMSE evaluation ──────────────────────────
 HOLDOUT_SEED = 0
-HOLDOUT_FRAC = 0.10   # mask 10 % of observed non-target, non-NMHC values
+HOLDOUT_FRAC = 0.10  # mask 10 % of observed non-target, non-NMHC values
 
 EVAL_COLS = [
-    "PT08.S1(CO)", "C6H6(GT)", "PT08.S2(NMHC)",
-    "PT08.S3(NOx)", "PT08.S4(NO2)", "PT08.S5(O3)",
-    "T", "RH", "AH",
+    "PT08.S1(CO)",
+    "C6H6(GT)",
+    "PT08.S2(NMHC)",
+    "PT08.S3(NOx)",
+    "PT08.S4(NO2)",
+    "PT08.S5(O3)",
+    "T",
+    "RH",
+    "AH",
 ]
 
 
@@ -62,20 +69,20 @@ def main() -> None:
     # ── 2. Create holdout mask for quantitative comparison ──────────────────
     holdout = make_holdout_mask(df, HOLDOUT_FRAC, HOLDOUT_SEED)
     df_masked = df.copy()
-    df_masked[holdout] = np.nan          # artificially hide holdout cells
+    df_masked[holdout] = np.nan  # artificially hide holdout cells
 
     # ── 3. BLR imputation on masked data ────────────────────────────────────
     print("Running Bayesian Linear Regression imputation …")
     blr = BayesianLinearImputer()
     df_blr = blr.fit_transform(df_masked)
 
-    # ── 4. Fit PF on BLR-imputed data, run on masked data ───────────────────
+    # ── 4. Fit PF on bayesian output, run on masked data ──────────
     print("Fitting Particle Filter parameters …")
     pf = MultivariateParticleFilter(n_particles=1000, random_state=42)
     pf.fit(df_blr)
 
     print("Running Particle Filter (this takes ~30 s for N=1000, T=9357) …")
-    df_pf_mean, df_pf_std = pf.run(df_masked, hide_target=True)
+    df_pf_mean, df_pf_std = pf.run(df_blr, hide_target=True)
 
     # ── 5. RMSE comparison ──────────────────────────────────────────────────
     print("\n" + "=" * 62)
@@ -135,8 +142,13 @@ def _plot_blr(df_raw: pd.DataFrame, df_blr: pd.DataFrame) -> None:
         ax.plot(x, blr_vals, color="firebrick", lw=1.2, label="BLR")
         obs_mask = ~np.isnan(raw_vals)
         ax.scatter(
-            x[obs_mask], raw_vals[obs_mask],
-            s=4, color="black", alpha=0.5, label="Observed", zorder=5
+            x[obs_mask],
+            raw_vals[obs_mask],
+            s=4,
+            color="black",
+            alpha=0.5,
+            label="Observed",
+            zorder=5,
         )
         ax.set_title(col, fontsize=9)
         ax.set_xlabel("Hour offset", fontsize=7)
@@ -147,7 +159,9 @@ def _plot_blr(df_raw: pd.DataFrame, df_blr: pd.DataFrame) -> None:
 
     handles, labels = axes_flat[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower right", fontsize=9, ncol=2)
-    fig.suptitle("Bayesian Linear Regression Imputation — first 2 weeks", fontsize=13, y=1.01)
+    fig.suptitle(
+        "Bayesian Linear Regression Imputation — first 2 weeks", fontsize=13, y=1.01
+    )
     plt.tight_layout()
 
     out_path = PROCESSED_DATA_DIR / "imputation_comparison_blr.png"
@@ -168,18 +182,27 @@ def _plot_pf(
     for i, col in enumerate(cols):
         ax = axes_flat[i]
         raw_vals = df_raw[col].iloc[idx_slice].values
-        pf_mean  = df_pf_mean[col].iloc[idx_slice].values
-        pf_std   = df_pf_std[col].iloc[idx_slice].values
+        pf_mean = df_pf_mean[col].iloc[idx_slice].values
+        pf_std = df_pf_std[col].iloc[idx_slice].values
 
         ax.fill_between(
-            x, pf_mean - pf_std, pf_mean + pf_std,
-            alpha=0.25, color="steelblue", label="PF ±1σ"
+            x,
+            pf_mean - pf_std,
+            pf_mean + pf_std,
+            alpha=0.25,
+            color="steelblue",
+            label="PF ±1σ",
         )
         ax.plot(x, pf_mean, color="steelblue", lw=1.2, label="PF mean")
         obs_mask = ~np.isnan(raw_vals)
         ax.scatter(
-            x[obs_mask], raw_vals[obs_mask],
-            s=4, color="black", alpha=0.5, label="Observed", zorder=5
+            x[obs_mask],
+            raw_vals[obs_mask],
+            s=4,
+            color="black",
+            alpha=0.5,
+            label="Observed",
+            zorder=5,
         )
         title = col if col != TARGET_COL else f"{col}  ★ target (hidden during PF)"
         ax.set_title(title, fontsize=9)

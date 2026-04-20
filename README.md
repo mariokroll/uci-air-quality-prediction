@@ -38,7 +38,7 @@ End-to-end probabilistic machine learning pipeline for forecasting CO concentrat
 Raw CSV ingestion with European locale parsing (`;` separator, `,` decimal). Missing values encoded as `-200` are replaced with `NaN`. Builds a sorted `DatetimeIndex` and retains the 13 feature columns defined in `src/config.py`.
 
 ### Phase 2 — Probabilistic Imputation (Particle Filter)
-A Rao-Blackwellised **Particle Filter** with a **Bayesian Linear Regression** observation model imputes missing sensor readings. The filter treats CO(GT) as a hidden state and uses all other sensors as observations. The imputed dataset is saved to `data/processed/pf_imputed.csv`.
+A **Particle Filter** is compared with a **Bayesian Linear Regression** observation model imputes missing sensor readings. The filter treats CO(GT) as a hidden state and uses all other sensors as observations. The imputed dataset is saved to `data/processed/pf_imputed.csv`.
 
 > Two separate plots are generated — one per method — so neither obscures the other.
 
